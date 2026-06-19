@@ -21,41 +21,51 @@
 import { api } from './api.js';
 import { CONFIG } from './config.js';
 import { $, el, escapeHtml, renderMarkdown, toast, fmt } from './ui.js';
+import { sanitizeText } from './sanitize.js';
 
 // In-memory conversation. Always begins with the system prompt.
 const conversation = [{ role: 'system', content: CONFIG.PERSONA.systemPrompt }];
 
 let isSending = false;
 let currentProfile = null;
+let isLocked = false; // anonymous visitor — cannot actually send
 
 /**
  * Boot the chat page.
  * @param {Object} profile  hydrated from /api/auth/verify
+ * @param {Object} [opts]
+ * @param {boolean} [opts.locked=false]  Anonymous visitor — read-only mode
  */
-export async function initChat(profile) {
+export async function initChat(profile, opts = {}) {
   currentProfile = profile;
+  isLocked = !!opts.locked;
   updateModelIndicator(profile);
   updateQuota(profile);
 
-  // Hydrate last N turns from history.
-  try {
-    const { history } = await api.history({ limit: CONFIG.CHAT.maxHistoryTurns });
-    if (Array.isArray(history) && history.length) {
-      // Server returns newest first; reverse for display, drop system rows.
-      const turns = history.filter(h => h.role !== 'system').reverse();
-      for (const t of turns) {
-        conversation.push({ role: t.role, content: t.message });
-        appendMessage(t.role, t.message, { model: t.model, time: t.created_at });
+  // Hydrate last N turns from history (skip for anonymous — they have none).
+  if (!isLocked) {
+    try {
+      const { history } = await api.history({ limit: CONFIG.CHAT.maxHistoryTurns });
+      if (Array.isArray(history) && history.length) {
+        // Server returns newest first; reverse for display, drop system rows.
+        const turns = history.filter(h => h.role !== 'system').reverse();
+        for (const t of turns) {
+          conversation.push({ role: t.role, content: t.message });
+          appendMessage(t.role, t.message, { model: t.model, time: t.created_at });
+        }
+        scrollToBottom();
       }
-      scrollToBottom();
+    } catch (e) {
+      console.warn('history hydrate failed', e);
     }
-  } catch (e) {
-    console.warn('history hydrate failed', e);
   }
 
-  // Wire UI.
-  $('#chat-form')?.addEventListener('submit', onSend);
-  $('#chat-clear')?.addEventListener('click', onClear);
+  // Wire UI (composer events are skipped when locked — main.js replaces
+  // the composer with a sign-in CTA instead).
+  if (!isLocked) {
+    $('#chat-form')?.addEventListener('submit', onSend);
+    $('#chat-clear')?.addEventListener('click', onClear);
+  }
 
   // Auto-grow textarea.
   const input = $('#chat-input');
@@ -94,10 +104,20 @@ function updateQuota(profile) {
 
 async function onSend(e) {
   e.preventDefault();
-  if (isSending) return;
+  if (isSending || isLocked) return;
   const input = $('#chat-input');
-  const text  = (input?.value || '').trim();
-  if (!text) return;
+  // SANITIZE: strip control chars, HTML tags, BOM/RTL overrides. Cap length.
+  const raw   = (input?.value || '');
+  const text  = sanitizeText(raw, 16_000);
+  if (!text) {
+    toast('Message appears empty after sanitization.', 'info');
+    return;
+  }
+  // Reject messages that are mostly repeated chars (spam/abuse heuristic).
+  if (/(.)\1{500,}/.test(text)) {
+    toast('Message rejected: too much repetition.', 'error');
+    return;
+  }
 
   // Append user message immediately (optimistic).
   conversation.push({ role: 'user', content: text });

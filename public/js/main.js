@@ -6,10 +6,13 @@
  * Boots in this order:
  *   1. Wait for supabase-client to finish initialising (it self-inits on import).
  *   2. Call /api/auth/verify — server-side session check.
- *      - If 401 -> redirect to /login-signup.html
+ *      - If 401 (no session) -> ANONYMOUS VIEW: render the chat UI in a
+ *        "locked" state. Visitor can browse the interface, see the welcome
+ *        screen, and read suggestions, but cannot send messages or access
+ *        settings/payment. Clicking the composer CTA redirects to login.
  *      - If 403 (email not verified) -> show verification notice
  *      - If banned -> show banned notice
- *   3. Hydrate sidebar, chat, settings, payment with the verified profile.
+ *      - Otherwise hydrate sidebar/chat/settings/payment with the verified profile.
  *
  * IMPORTANT: we do NOT trust the Supabase JS SDK's getSession() alone —
  * that only tells us the browser has a token, not that the token is still
@@ -21,38 +24,86 @@ import { initSidebar } from './sidebar.js';
 import { initChat }    from './chat.js';
 import { initSettings } from './settings.js';
 import { initPayment } from './payment.js';
-import { toast, $, el } from './ui.js';
+import { toast, $, el, openModal, closeModal } from './ui.js';
+import { CONFIG } from './config.js';
+
+/**
+ * Wire all elements with [data-open-modal] or [data-close-modal] to the
+ * shared openModal/closeModal helpers. This avoids inline onclick handlers.
+ *
+ * Example:
+ *   <button data-open-modal="settings-modal">Open settings</button>
+ *   <button data-close-modal="settings-modal">Close</button>
+ *   <button data-open-modal="payment-modal" data-close-modal="settings-modal">
+ *     Open payment (also closes settings)
+ *   </button>
+ */
+function setupModalTriggers() {
+  document.addEventListener('click', (e) => {
+    const opener = e.target.closest('[data-open-modal]');
+    if (opener) {
+      const targetId = opener.dataset.openModal;
+      // If the same click also closes another modal, close it first.
+      const alsoClose = opener.dataset.closeModal;
+      if (alsoClose && alsoClose !== targetId) closeModal(alsoClose);
+      openModal(targetId);
+      return;
+    }
+    const closer = e.target.closest('[data-close-modal]');
+    if (closer) {
+      closeModal(closer.dataset.closeModal);
+      return;
+    }
+  });
+}
 
 async function boot() {
-  // Show splash while we verify.
   showSplash('Verifying session…');
 
-  let profile;
+  // Wire modal triggers + inject the new ToolGpt logo SVG.
+  setupModalTriggers();
+  document.querySelectorAll('[data-tg-logo]').forEach(node => {
+    node.innerHTML = CONFIG.LOGO_SVG;
+  });
+
+  let profile = null;
+  let isAnonymous = false;
+
   try {
     const res = await api.auth.verify();
     profile = res.profile;
   } catch (err) {
     if (err.status === 401) {
-      // No session — go to login.
-      location.href = '/login-signup.html';
-      return;
-    }
-    if (err.code === 'EMAIL_NOT_VERIFIED') {
+      // No session — anonymous visitor. Show the locked UI.
+      isAnonymous = true;
+    } else if (err.code === 'EMAIL_NOT_VERIFIED') {
+      hideSplash();
       showFatal('Please verify your email before using the app. Check your inbox.',
         'Resend verification', () => resendVerification());
       return;
-    }
-    if (err.code === 'BANNED') {
+    } else if (err.code === 'BANNED') {
+      hideSplash();
       showFatal('Your account has been banned. Contact support.');
       return;
+    } else {
+      // Network error etc. — fall back to anonymous view so the user at
+      // least sees something instead of a blank screen.
+      isAnonymous = true;
+      console.warn('[boot] verify failed, falling back to anonymous view:', err);
     }
-    showFatal(err.message || 'Failed to verify session. Please refresh.');
-    return;
   }
 
   hideSplash();
 
-  // Hydrate modules in parallel where possible.
+  if (isAnonymous) {
+    await bootAnonymous();
+  } else {
+    await bootAuthenticated(profile);
+  }
+}
+
+/** Authenticated boot — full chat experience. */
+async function bootAuthenticated(profile) {
   await Promise.all([
     initSidebar(profile),
     initChat(profile),
@@ -62,6 +113,94 @@ async function boot() {
 
   toast(`Signed in as ${profile.email}`, 'success', 2000);
 }
+
+/**
+ * Anonymous boot — let visitors explore the interface.
+ *
+ * What's available:
+ *   - See the ToolGpt welcome screen + suggestion cards
+ *   - See the sidebar (with anonymous user card)
+ *   - See the model indicator + quota (locked values)
+ *
+ * What's locked:
+ *   - Sending chat messages (composer replaced with "Sign in to chat" CTA)
+ *   - Settings + Payment (sidebar buttons disabled)
+ *   - History (sidebar section blurred)
+ *
+ * A persistent banner at the top tells the visitor they're in read-only mode.
+ */
+async function bootAnonymous() {
+  // Build a fake "anonymous" profile so the UI has something to render.
+  const anonProfile = {
+    email: 'anonymous@toolgpt.local',
+    username: 'guest',
+    plan: 'free',
+    daily_limit: 200,
+    used_tokens: 0,
+    expires_at: null,
+    is_banned: false,
+  };
+
+  // Show the locked banner.
+  const banner = el('div', { class: 'locked-banner', role: 'status' },
+    el('span', {}, '🔒 You are browsing as a guest. Sign in to send messages and save history.'),
+    el('button', {
+      type: 'button',
+      onclick: () => location.href = '/login-signup.html',
+    }, 'Sign in →'),
+  );
+  document.body.prepend(banner);
+  document.body.classList.add('has-locked-banner');
+
+  // Mark sidebar as anonymous (CSS blurs sensitive sections).
+  const sidebar = $('#sidebar');
+  if (sidebar) sidebar.classList.add('anonymous');
+
+  // Hydrate sidebar with anonymous info.
+  await initSidebar(anonProfile);
+
+  // Render the chat UI but in locked mode.
+  await initChat(anonProfile, { locked: true });
+
+  // Replace the composer with a sign-in CTA.
+  replaceComposerWithSignInCTA();
+
+  toast('Browsing as guest. Sign in to chat.', 'info', 4000);
+}
+
+/** Replace the chat composer with a sign-in call-to-action. */
+function replaceComposerWithSignInCTA() {
+  const composer = $('.chat-composer');
+  if (!composer) return;
+  composer.replaceChildren(
+    el('div', { class: 'chat-composer-locked' },
+      el('p', {}, '// Authentication required to send messages.'),
+      el('button', {
+        class: 'btn btn-primary',
+        type: 'button',
+        onclick: () => location.href = '/login-signup.html',
+      },
+        el('svg', { viewBox: '0 0 24 24', width: '16', height: '16', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
+        'Sign in to chat',
+      ),
+    ),
+  );
+  // Patch: el() above created <svg> as a child but didn't set its innerHTML.
+  // For simplicity, set the button innerHTML directly:
+  const btn = composer.querySelector('.btn-primary');
+  if (btn) {
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+        <polyline points="10 17 15 12 10 7"></polyline>
+        <line x1="15" y1="12" x2="3" y2="12"></line>
+      </svg>
+      Sign in to chat`;
+  }
+}
+
+// $ helper for querySelector — main.js needs it but ui.js exports it.
+function _q(sel) { return document.querySelector(sel); }
 
 // ----- Splash + fatal screen helpers -----
 function showSplash(msg) {
@@ -85,7 +224,6 @@ function showFatal(msg, btnLabel, onClick) {
 }
 
 async function resendVerification() {
-  // Lazy import to avoid circular deps.
   const { supabase } = await import('./supabase-client.js');
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user?.email) {

@@ -38,10 +38,24 @@ export async function initSidebar(profile) {
     avatarEl.textContent = initial;
   }
 
+  // Detect anonymous — different button wiring.
+  const isAnonymous = profile.email === 'anonymous@toolgpt.local';
+
   // Buttons.
-  $('#btn-logout')?.addEventListener('click', async () => {
-    await logout();
-  });
+  if (isAnonymous) {
+    // Hide logout + replace with "Sign in" prompt.
+    const logoutBtn = $('#btn-logout');
+    if (logoutBtn) {
+      logoutBtn.title = 'Sign in';
+      logoutBtn.setAttribute('aria-label', 'Sign in');
+      logoutBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>`;
+      logoutBtn.addEventListener('click', () => location.href = '/login-signup.html');
+    }
+  } else {
+    $('#btn-logout')?.addEventListener('click', async () => {
+      await logout();
+    });
+  }
   $('#btn-show-history')?.addEventListener('click', loadHistory);
   $('#btn-new-chat')?.addEventListener('click', () => {
     // Clear visible messages + show empty state again. Server history preserved.
@@ -70,8 +84,24 @@ export async function initSidebar(profile) {
     $('#sidebar')?.classList.toggle('open');
   });
 
-  // Auto-load recent history on first paint.
-  await loadHistory();
+  // Settings open button — disabled for anonymous.
+  if (isAnonymous) {
+    const settingsBtn = $('#btn-open-settings');
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', () => {
+        toast('Sign in to access settings.', 'info');
+        setTimeout(() => location.href = '/login-signup.html', 800);
+      });
+    }
+  }
+
+  // Auto-load recent history on first paint (skip for anonymous).
+  if (isAnonymous) {
+    const list = $('#history-list');
+    if (list) list.innerHTML = '<div class="sidebar-empty">Sign in to save chat history.</div>';
+  } else {
+    await loadHistory();
+  }
 }
 
 async function loadHistory() {

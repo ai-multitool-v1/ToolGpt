@@ -122,3 +122,41 @@ export function timeAgo(iso) {
 export function fmt(n) {
   return Number(n || 0).toLocaleString();
 }
+
+/**
+ * Open a modal overlay with animation. Adds .open class and removes [hidden].
+ * @param {string} id  element id of the .modal-overlay
+ */
+export function openModal(id) {
+  const m = document.getElementById(id);
+  if (!m) return;
+  m.classList.remove('closing');
+  m.removeAttribute('hidden');
+  m.classList.add('open');
+  // Lock body scroll while modal is open.
+  document.body.style.overflow = 'hidden';
+  // Auto-focus first input/button inside the modal.
+  setTimeout(() => {
+    m.querySelector('input, select, button:not(.modal-close)')?.focus();
+  }, 100);
+  // Esc to close.
+  const onKey = (e) => {
+    if (e.key === 'Escape') { closeModal(id); document.removeEventListener('keydown', onKey); }
+  };
+  document.addEventListener('keydown', onKey);
+}
+
+/**
+ * Close a modal overlay with animation. Plays the closing animation, then
+ * sets hidden=true after the animation finishes.
+ */
+export function closeModal(id) {
+  const m = document.getElementById(id);
+  if (!m) return;
+  m.classList.add('closing');
+  document.body.style.overflow = '';
+  setTimeout(() => {
+    m.classList.remove('open', 'closing');
+    m.setAttribute('hidden', '');
+  }, 180);
+}

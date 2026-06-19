@@ -13,20 +13,15 @@
 
   <link rel="stylesheet" href="/css/theme.css" />
 
-  <!-- Favicon: terminal-style "T" mark -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2300ff9c'/%3E%3Cpath d='M8 11h6v10H8z' fill='none'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' font-weight='700' text-anchor='middle' fill='%23001a10'%3ET%3C/text%3E%3C/svg%3E" />
+  <!-- Favicon: ToolGpt shield+terminal mark -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='32' y2='32' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0' stop-color='%2300ff9c'/%3E%3Cstop offset='1' stop-color='%2300d4ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M16 2 L27 6.5 V15 C27 22.5 22.5 27.5 16 30 C9.5 27.5 5 22.5 5 15 V6.5 Z' fill='url(%23g)'/%3E%3Cpath d='M11 13 L14.5 16 L11 19' stroke='%23001a10' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Cline x1='16.5' y1='19' x2='20.5' y2='19' stroke='%23001a10' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
 </head>
 <body>
   <main class="auth-page">
     <section class="auth-card" role="main" aria-label="Authentication">
-      <!-- Logo -->
+      <!-- Logo — JS injects the shield+terminal SVG -->
       <div class="auth-logo">
-        <div class="auth-logo-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="4 7 8 11 4 15"></polyline>
-            <line x1="12" y1="16" x2="20" y2="16"></line>
-          </svg>
-        </div>
+        <div class="auth-logo-mark" data-tg-logo aria-hidden="true"></div>
         <span class="auth-logo-name">ToolGpt</span>
       </div>
       <p class="auth-tagline">// Pentesting · Ethical Hacking · Cybersecurity</p>
@@ -80,8 +75,14 @@
           <input id="signup-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
         </div>
         <div class="auth-field">
-          <label for="signup-password">Password <span style="color:var(--text-dim)">(min 8 chars)</span></label>
+          <label for="signup-password">Password <span style="color:var(--text-dim)">(min 8 chars, needs upper+lower+digit+symbol)</span></label>
           <input id="signup-password" name="password" type="password" autocomplete="new-password" placeholder="••••••••••" required minlength="8" />
+          <!-- Strength meter — auth.js wires via attachStrengthMeter() -->
+          <div id="pw-strength" class="pw-strength">
+            <div class="pw-strength-bar"><div class="pw-strength-fill"></div></div>
+            <div class="pw-strength-label"></div>
+            <ul class="pw-strength-tips"></ul>
+          </div>
         </div>
         <div class="auth-actions">
           <button id="btn-signup" type="submit" class="btn btn-primary">

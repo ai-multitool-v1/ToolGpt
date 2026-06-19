@@ -27,17 +27,18 @@
 
 import { api } from './api.js';
 import { CONFIG } from './config.js';
-import { $, el, escapeHtml, fmt, toast, timeAgo } from './ui.js';
+import { $, el, escapeHtml, fmt, toast, timeAgo, openModal, closeModal } from './ui.js';
+import { sanitizeTrxId, isValidTrxId, sanitizeEmail, isValidEmail } from './sanitize.js';
 
 let paymentProfile = null;
 
 export function initPayment(profile) {
   paymentProfile = profile;
 
-  $('#btn-upgrade')?.addEventListener('click', openModal);
-  $('#btn-payment-cancel')?.addEventListener('click', closeModal);
+  $('#btn-upgrade')?.addEventListener('click', () => openModal('payment-modal'));
+  $('#btn-payment-cancel')?.addEventListener('click', () => closeModal('payment-modal'));
   $('#payment-modal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'payment-modal') closeModal();
+    if (e.target.id === 'payment-modal') closeModal('payment-modal');
   });
 
   $('#payment-form')?.addEventListener('submit', onSubmit);
@@ -50,12 +51,8 @@ export function initPayment(profile) {
   loadMyRequests();
 }
 
-function openModal() {
-  const m = $('#payment-modal');
-  if (!m) return;
-  m.classList.add('open');
-  m.removeAttribute('hidden');
-
+function openPaymentModal() {
+  openModal('payment-modal');
   // Pre-fill amount + email.
   const amount = $('#payment-amount');
   if (amount) { amount.value = CONFIG.PRICES.pro; amount.readOnly = true; }
@@ -65,11 +62,6 @@ function openModal() {
   // Default destination.
   const method = $('#payment-method')?.value || 'bkash';
   updateDestination(method);
-}
-
-function closeModal() {
-  $('#payment-modal')?.classList.remove('open');
-  $('#payment-modal')?.setAttribute('hidden', '');
 }
 
 function updateDestination(method) {
@@ -84,18 +76,32 @@ async function onSubmit(e) {
   const btn = $('#btn-payment-submit');
   if (btn) btn.disabled = true;
 
-  const payload = {
-    method: $('#payment-method')?.value || 'bkash',
-    amount: Number($('#payment-amount')?.value || 0),
-    trxId:  ($('#payment-trx')?.value || '').trim(),
-    email:  ($('#payment-email')?.value || '').trim(),
-  };
+  // SANITIZE all fields before submission.
+  const method = $('#payment-method')?.value === 'nagad' ? 'nagad' : 'bkash';
+  const amount = Number($('#payment-amount')?.value || 0);
+  const trxIdRaw = $('#payment-trx')?.value || '';
+  const trxId = sanitizeTrxId(trxIdRaw);
+  const emailRaw = $('#payment-email')?.value || '';
+  const email = sanitizeEmail(emailRaw);
 
-  if (!payload.trxId) {
-    toast('Enter the transaction ID from your bKash/Nagad app.', 'error');
+  // VALIDATE
+  if (!Number.isFinite(amount) || amount <= 0) {
+    toast('Amount must be a positive number.', 'error');
     if (btn) btn.disabled = false;
     return;
   }
+  if (!isValidTrxId(trxId)) {
+    toast('TRX ID must be 6-20 alphanumeric characters.', 'error');
+    if (btn) btn.disabled = false;
+    return;
+  }
+  if (!isValidEmail(email)) {
+    toast('Please enter a valid email address.', 'error');
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  const payload = { method, amount, trxId, email };
 
   try {
     const res = await api.payment.submit(payload);

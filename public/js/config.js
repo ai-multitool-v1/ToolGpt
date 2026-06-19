@@ -53,6 +53,25 @@ export const CONFIG = Object.freeze({
     ].join('\n'),
   }),
 
+  // ToolGpt logo — shield (security) + terminal prompt "> _" + circuit nodes.
+  // Used in sidebar, auth page, and favicon. Color is applied via the
+  // linearGradient defined inline (green -> cyan).
+  LOGO_SVG: `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="tg-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#00ff9c"/>
+        <stop offset="1" stop-color="#00d4ff"/>
+      </linearGradient>
+    </defs>
+    <path d="M16 2 L27 6.5 V15 C27 22.5 22.5 27.5 16 30 C9.5 27.5 5 22.5 5 15 V6.5 Z" fill="url(#tg-grad)"/>
+    <path d="M16 5.5 L24 9 V15 C24 20.5 20.5 24.5 16 26.5 C11.5 24.5 8 20.5 8 15 V9 Z" fill="none" stroke="#001a10" stroke-width="0.8" stroke-opacity="0.35"/>
+    <path d="M11 13 L14.5 16 L11 19" stroke="#001a10" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <line x1="16.5" y1="19" x2="20.5" y2="19" stroke="#001a10" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="16" cy="2" r="1.2" fill="#001a10"/>
+    <circle cx="27" cy="6.5" r="1" fill="#001a10"/>
+    <circle cx="5" cy="6.5" r="1" fill="#001a10"/>
+  </svg>`,
+
   // Pricing (display only; server is source of truth).
   PRICES: Object.freeze({
     pro: 99, // BDT

@@ -20,6 +20,7 @@
 import { api } from './api.js';
 import { CONFIG } from './config.js';
 import { $, el, escapeHtml, fmt, toast } from './ui.js';
+import { sanitizeUsername, isValidUsername, sanitizeUrl } from './sanitize.js';
 
 export async function initSettings(profile) {
   hydrateProfileForm(profile);
@@ -107,12 +108,38 @@ function renderDailyUsage(daily) {
 }
 
 async function saveProfile() {
-  const username = $('#settings-username')?.value.trim();
-  const avatar   = $('#settings-avatar')?.value.trim();
+  const usernameRaw = $('#settings-username')?.value || '';
+  const avatarRaw   = $('#settings-avatar')?.value || '';
   const btn = $('#btn-save-profile');
   if (btn) btn.disabled = true;
+
+  // SANITIZE: username + avatar URL.
+  const patch = {};
+  if (usernameRaw) {
+    const username = sanitizeUsername(usernameRaw);
+    if (!isValidUsername(username)) {
+      toast('Username must start with a letter, be 3-32 chars, alnum/_/.- only.', 'error');
+      if (btn) btn.disabled = false;
+      return;
+    }
+    patch.username = username;
+  } else {
+    patch.username = null;
+  }
+  if (avatarRaw) {
+    const avatar = sanitizeUrl(avatarRaw);
+    if (!avatar) {
+      toast('Avatar URL must be a clean https:// URL.', 'error');
+      if (btn) btn.disabled = false;
+      return;
+    }
+    patch.avatar_url = avatar;
+  } else {
+    patch.avatar_url = null;
+  }
+
   try {
-    const { profile } = await api.profile.update({ username, avatar_url: avatar });
+    const { profile } = await api.profile.update(patch);
     toast('Profile saved.', 'success');
     hydrateProfileForm(profile);
     hydratePlanCard(profile);
