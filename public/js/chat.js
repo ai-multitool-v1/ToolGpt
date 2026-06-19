@@ -20,7 +20,7 @@
 
 import { api } from './api.js';
 import { CONFIG } from './config.js';
-import { $, el, escapeHtml, renderMarkdown, toast, fmt } from './ui.js';
+import { $, el, escapeHtml, renderMarkdown, toast, fmt, openModal } from './ui.js';
 import { sanitizeText } from './sanitize.js';
 
 // In-memory conversation. Always begins with the system prompt.
@@ -60,12 +60,10 @@ export async function initChat(profile, opts = {}) {
     }
   }
 
-  // Wire UI (composer events are skipped when locked — main.js replaces
-  // the composer with a sign-in CTA instead).
-  if (!isLocked) {
-    $('#chat-form')?.addEventListener('submit', onSend);
-    $('#chat-clear')?.addEventListener('click', onClear);
-  }
+  // Wire UI. In locked (anonymous) mode, the composer is still interactive —
+  // pressing send opens the login-required modal instead of calling the API.
+  $('#chat-form')?.addEventListener('submit', onSend);
+  $('#chat-clear')?.addEventListener('click', onClear);
 
   // Auto-grow textarea.
   const input = $('#chat-input');
@@ -104,11 +102,31 @@ function updateQuota(profile) {
 
 async function onSend(e) {
   e.preventDefault();
-  if (isSending || isLocked) return;
+  if (isSending) return;
+
   const input = $('#chat-input');
   // SANITIZE: strip control chars, HTML tags, BOM/RTL overrides. Cap length.
   const raw   = (input?.value || '');
   const text  = sanitizeText(raw, 16_000);
+
+  // Anonymous visitor — don't actually send. Show login-required modal.
+  // We still clear the composer so it feels responsive, and show the user's
+  // message briefly so they see what they typed before being asked to login.
+  if (isLocked) {
+    if (!text) {
+      openModal('login-required-modal');
+      return;
+    }
+    // Append the user's message visually so they get feedback...
+    appendMessage('user', text);
+    input.value = '';
+    input.style.height = 'auto';
+    scrollToBottom();
+    // ...then immediately show the login modal.
+    setTimeout(() => openModal('login-required-modal'), 250);
+    return;
+  }
+
   if (!text) {
     toast('Message appears empty after sanitization.', 'info');
     return;
@@ -126,7 +144,7 @@ async function onSend(e) {
   input.style.height = 'auto';
   scrollToBottom();
 
-  // Show typing indicator.
+  // Show thinking loader (typing dots + "ToolGpt is thinking…" label).
   const typing = appendMessage('assistant', '', { typing: true });
   isSending = true;
   $('#chat-send')?.setAttribute('disabled', '');
@@ -137,7 +155,8 @@ async function onSend(e) {
     });
     typing.remove();
     conversation.push({ role: 'assistant', content: res.content });
-    appendMessage('assistant', res.content, { model: res.model });
+    // Reveal assistant reply with typewriter animation.
+    appendMessage('assistant', res.content, { model: res.model, typewriter: true });
     updateQuota({
       used_tokens: res.quota.used,
       daily_limit: res.quota.limit,
@@ -202,10 +221,21 @@ function appendMessage(role, content, opts = {}) {
   const wrap = el('div', { class: `msg msg-${role}${opts.system ? ' msg-system' : ''}` });
 
   if (opts.typing) {
+    // Enhanced thinking loader: dots + "ToolGpt is thinking…" label.
     wrap.classList.add('msg-typing');
-    wrap.append(el('div', { class: 'typing-dots' },
-      el('span'), el('span'), el('span')
-    ));
+    const thinking = el('div', { class: 'msg-thinking' },
+      el('div', { class: 'thinking-avatar', 'data-tg-logo': '' }),
+      el('div', { class: 'thinking-content' },
+        el('div', { class: 'thinking-label' }, 'ToolGpt is thinking'),
+        el('div', { class: 'typing-dots' },
+          el('span'), el('span'), el('span')
+        ),
+      ),
+    );
+    // Inject the logo SVG into the avatar placeholder.
+    const logoHolder = thinking.querySelector('[data-tg-logo]');
+    if (logoHolder && CONFIG.LOGO_SVG) logoHolder.innerHTML = CONFIG.LOGO_SVG;
+    wrap.append(thinking);
     list.append(wrap);
     scrollToBottom();
     return wrap;
@@ -218,12 +248,102 @@ function appendMessage(role, content, opts = {}) {
   );
 
   const body = el('div', { class: 'msg-body' });
-  body.innerHTML = role === 'user' ? escapeHtml(content).replace(/\n/g, '<br>') : renderMarkdown(content);
+
+  if (opts.typewriter && role === 'assistant' && content) {
+    // Typewriter reveal: progressively reveal text content, then swap to
+    // fully-rendered markdown at the end for proper formatting.
+    list.append(wrap);
+    wrap.append(header, body);
+    typewriterReveal(body, content);
+    scrollToBottom();
+    return wrap;
+  }
+
+  // Default: render full content immediately.
+  body.innerHTML = role === 'user'
+    ? escapeHtml(content).replace(/\n/g, '<br>')
+    : renderMarkdown(content);
 
   wrap.append(header, body);
   list.append(wrap);
   scrollToBottom();
   return wrap;
+}
+
+/**
+ * Typewriter reveal — progressively reveal the assistant's response text
+ * character-by-character (in small chunks per frame for speed), then swap
+ * to fully-rendered Markdown HTML at the end.
+ *
+ * During typing, the text is shown as plain text with a blinking cursor.
+ * Once complete, the body's innerHTML is replaced with the rendered
+ * markdown (code blocks, lists, links, etc.) via a quick fade.
+ *
+ * Speed: ~3-5 chars per frame (~180-300 chars/sec). For a 1000-char
+ * response that's ~3-5 seconds of typing animation.
+ *
+ * @param {HTMLElement} bodyEl  the .msg-body element to fill
+ * @param {string} text         the raw response text
+ */
+function typewriterReveal(bodyEl, text) {
+  if (!bodyEl || !text) {
+    if (bodyEl) bodyEl.innerHTML = renderMarkdown(text || '');
+    return;
+  }
+
+  // Render the final markdown once so we can swap to it at the end.
+  const finalHtml = renderMarkdown(text);
+
+  // Cap length so very long responses don't take forever.
+  // For responses > 3000 chars, increase chunk size proportionally.
+  const totalLen = text.length;
+  let chunkSize = 3;
+  if (totalLen > 500)  chunkSize = 5;
+  if (totalLen > 1500) chunkSize = 10;
+  if (totalLen > 3000) chunkSize = 20;
+
+  // Estimate total time so we can cap it (max ~6 seconds).
+  const estimatedMs = (totalLen / chunkSize) * 16;
+  if (estimatedMs > 6000) {
+    chunkSize = Math.ceil(totalLen / (6000 / 16));
+  }
+
+  let i = 0;
+  bodyEl.classList.add('typewriter-active');
+  bodyEl.innerHTML = '';
+
+  function step() {
+    i = Math.min(totalLen, i + chunkSize);
+    const partial = text.slice(0, i);
+    // Show partial text as plain text (escaped) — formatting appears at end.
+    // Append a blinking cursor via a separate span after the text node.
+    bodyEl.innerHTML = '';
+    bodyEl.append(document.createTextNode(partial));
+    const cursor = document.createElement('span');
+    cursor.className = 'typewriter-cursor';
+    cursor.textContent = '▋';
+    bodyEl.append(cursor);
+    scrollToBottom();
+
+    if (i < totalLen) {
+      // Use setTimeout(16) instead of rAF so it doesn't pause when tab is hidden.
+      setTimeout(step, 16);
+    } else {
+      // Done — swap to rendered markdown with a quick fade.
+      bodyEl.style.transition = 'opacity .2s ease';
+      bodyEl.style.opacity = '0';
+      setTimeout(() => {
+        bodyEl.innerHTML = finalHtml;
+        bodyEl.classList.remove('typewriter-active');
+        bodyEl.style.opacity = '1';
+        // Scroll one more time after the swap in case markdown changed height.
+        scrollToBottom();
+      }, 180);
+    }
+  }
+
+  // Small initial delay so the typing doesn't start before the bubble appears.
+  setTimeout(step, 80);
 }
 
 function scrollToBottom() {

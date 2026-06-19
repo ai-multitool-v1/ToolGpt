@@ -1431,3 +1431,123 @@ body.has-locked-banner .chat-topbar { margin-top: 38px; }
     transition-duration: .01ms !important;
   }
 }
+
+/* ============================================================================
+   v3 — Thinking loader, typewriter cursor, login-required modal
+   ============================================================================ */
+
+/* ---- Enhanced thinking loader ----------------------------------------- */
+/* Replaces the bare typing-dots with a full "ToolGpt is thinking" row:
+ *   [logo avatar]  ToolGpt is thinking
+ *                 • • •  (animated dots)
+ */
+.msg-typing .msg-thinking {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 0;
+}
+.thinking-avatar {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+  animation: thinking-pulse 1.6s ease-in-out infinite;
+}
+.thinking-avatar svg {
+  width: 100%;
+  height: 100%;
+}
+@keyframes thinking-pulse {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 8px var(--accent-glow)); }
+  50%      { transform: scale(1.08); filter: drop-shadow(0 0 14px var(--cyan-glow)); }
+}
+.thinking-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.thinking-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: .04em;
+}
+.thinking-label::after {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 11px;
+  background: var(--accent);
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: thinking-cursor 1s steps(2) infinite;
+}
+@keyframes thinking-cursor {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Typing dots inside the thinking row — keep them tighter + accent-colored */
+.msg-thinking .typing-dots span {
+  width: 6px; height: 6px;
+  background: var(--accent);
+}
+
+/* ---- Typewriter cursor + active body --------------------------------- */
+.typewriter-cursor {
+  display: inline-block;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  margin-left: 1px;
+  animation: typewriter-blink 0.8s steps(2) infinite;
+  text-shadow: 0 0 6px var(--accent-glow);
+}
+@keyframes typewriter-blink {
+  0%, 50%   { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* While typewriter is active, keep the body text as plain preformatted text
+ * so partial content displays cleanly (no mid-render markdown artifacts). */
+.msg-body.typewriter-active {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* ---- Login-required modal -------------------------------------------- */
+.modal-sm {
+  max-width: 400px;
+}
+.login-required-icon {
+  width: 56px; height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255,176,0,.15), rgba(0,212,255,.10));
+  border: 1px solid var(--warn);
+  display: grid;
+  place-items: center;
+  color: var(--warn);
+  animation: lock-shake .6s ease-in-out;
+}
+.login-required-icon svg { width: 26px; height: 26px; }
+@keyframes lock-shake {
+  0%, 100% { transform: rotate(0); }
+  20%, 60% { transform: rotate(-6deg); }
+  40%, 80% { transform: rotate(6deg); }
+}
+
+/* Make sure the login-required modal's primary CTA looks like a link-button */
+.modal-body a.btn-primary {
+  display: inline-flex;
+  text-decoration: none;
+}
+.modal-body a.btn-primary:hover { text-decoration: none; }
+

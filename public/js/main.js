@@ -115,19 +115,24 @@ async function bootAuthenticated(profile) {
 }
 
 /**
- * Anonymous boot — let visitors explore the interface.
+ * Anonymous boot — let visitors explore AND attempt to chat.
  *
  * What's available:
  *   - See the ToolGpt welcome screen + suggestion cards
  *   - See the sidebar (with anonymous user card)
  *   - See the model indicator + quota (locked values)
+ *   - Type into the composer + press send
  *
- * What's locked:
- *   - Sending chat messages (composer replaced with "Sign in to chat" CTA)
+ * What happens on send:
+ *   - A "login required" modal opens (chat.js triggers it).
+ *   - The modal explains that sign-in is needed to actually send messages.
+ *   - User can click "Sign in" to go to /login-signup.html or close it.
+ *
+ * What's still locked:
  *   - Settings + Payment (sidebar buttons disabled)
- *   - History (sidebar section blurred)
+ *   - History (sidebar section shows "Sign in to save chat history")
  *
- * A persistent banner at the top tells the visitor they're in read-only mode.
+ * A persistent banner at the top tells the visitor they're in guest mode.
  */
 async function bootAnonymous() {
   // Build a fake "anonymous" profile so the UI has something to render.
@@ -159,48 +164,12 @@ async function bootAnonymous() {
   // Hydrate sidebar with anonymous info.
   await initSidebar(anonProfile);
 
-  // Render the chat UI but in locked mode.
+  // Render the chat UI in locked mode. The composer stays visible —
+  // when the user tries to send, chat.js opens the login-required modal.
   await initChat(anonProfile, { locked: true });
 
-  // Replace the composer with a sign-in CTA.
-  replaceComposerWithSignInCTA();
-
-  toast('Browsing as guest. Sign in to chat.', 'info', 4000);
+  toast('Browsing as guest. Try sending a message to sign in.', 'info', 4000);
 }
-
-/** Replace the chat composer with a sign-in call-to-action. */
-function replaceComposerWithSignInCTA() {
-  const composer = $('.chat-composer');
-  if (!composer) return;
-  composer.replaceChildren(
-    el('div', { class: 'chat-composer-locked' },
-      el('p', {}, '// Authentication required to send messages.'),
-      el('button', {
-        class: 'btn btn-primary',
-        type: 'button',
-        onclick: () => location.href = '/login-signup.html',
-      },
-        el('svg', { viewBox: '0 0 24 24', width: '16', height: '16', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
-        'Sign in to chat',
-      ),
-    ),
-  );
-  // Patch: el() above created <svg> as a child but didn't set its innerHTML.
-  // For simplicity, set the button innerHTML directly:
-  const btn = composer.querySelector('.btn-primary');
-  if (btn) {
-    btn.innerHTML = `
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-        <polyline points="10 17 15 12 10 7"></polyline>
-        <line x1="15" y1="12" x2="3" y2="12"></line>
-      </svg>
-      Sign in to chat`;
-  }
-}
-
-// $ helper for querySelector — main.js needs it but ui.js exports it.
-function _q(sel) { return document.querySelector(sel); }
 
 // ----- Splash + fatal screen helpers -----
 function showSplash(msg) {
