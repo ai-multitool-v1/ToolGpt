@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ToolGpt — Pentesting & Cybersecurity Assistant</title>
+  <meta name="description" content="ToolGpt — your AI assistant for pentesting, ethical hacking, and cybersecurity." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/theme.css" />
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2300ff9c'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' font-weight='700' text-anchor='middle' fill='%23001a10'%3ET%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- ============================================================
+         SIDEBAR
+         ============================================================ -->
+    <aside class="sidebar" id="sidebar" aria-label="Conversation sidebar">
+      <div class="sidebar-head">
+        <div class="sidebar-logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 7 8 11 4 15"></polyline>
+            <line x1="12" y1="16" x2="20" y2="16"></line>
+          </svg>
+        </div>
+        <span class="sidebar-logo-name">ToolGpt</span>
+      </div>
+
+      <div class="sidebar-section">
+        <button id="btn-new-chat" class="sidebar-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          New chat
+        </button>
+        <button id="btn-show-history" class="sidebar-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+          Refresh history
+        </button>
+        <button id="btn-open-settings" class="sidebar-btn" type="button" onclick="document.getElementById('settings-modal').hidden=false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          Settings
+        </button>
+      </div>
+
+      <div class="sidebar-section-label">History</div>
+      <div class="sidebar-history" id="history-list" aria-live="polite">
+        <div class="sidebar-loading">Loading…</div>
+      </div>
+
+      <div class="sidebar-foot">
+        <div class="sidebar-user">
+          <div class="sidebar-user-avatar" id="user-avatar">U</div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-email" id="user-email">—</div>
+            <div class="sidebar-user-plan" id="user-plan" data-plan="free">FREE</div>
+          </div>
+          <button id="btn-logout" class="btn-icon btn-ghost" title="Sign out" aria-label="Sign out">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============================================================
+         MAIN CHAT AREA
+         ============================================================ -->
+    <main class="chat-main">
+      <!-- Topbar -->
+      <header class="chat-topbar">
+        <div class="chat-topbar-left">
+          <button id="sidebar-toggle" class="btn-icon btn-ghost" aria-label="Toggle sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <span id="chat-model-indicator" class="chat-model-indicator" data-plan="free">Groq · Llama 3.1 8B Instant</span>
+        </div>
+        <div class="chat-topbar-right">
+          <span id="chat-quota" class="chat-quota">0 / 200 tokens today</span>
+          <button id="chat-clear" class="btn-icon btn-ghost" title="Clear chat history" aria-label="Clear chat history">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Message list -->
+      <section id="chat-messages" class="chat-messages" aria-live="polite" aria-label="Conversation">
+        <!-- Empty state (chat.js hydrates history or shows this) -->
+        <div class="chat-empty" id="chat-empty">
+          <div class="chat-empty-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="4 7 8 11 4 15"></polyline>
+              <line x1="12" y1="16" x2="20" y2="16"></line>
+            </svg>
+          </div>
+          <h1>ToolGpt</h1>
+          <p>Your AI assistant for pentesting, ethical hacking &amp; cybersecurity.<br/>Authorized use only — scope &amp; consent first.</p>
+          <div class="chat-empty-suggestions">
+            <button type="button" onclick="document.getElementById('chat-input').value='Explain OWASP Top 10 with one example vuln each.';document.getElementById('chat-input').focus();">
+              <strong>// recon</strong>
+              Explain OWASP Top 10 with one example vuln each.
+            </button>
+            <button type="button" onclick="document.getElementById('chat-input').value='Show me a safe nmap command for scanning my own lab host.';document.getElementById('chat-input').focus();">
+              <strong>// enumerate</strong>
+              Show me a safe nmap command for scanning my own lab host.
+            </button>
+            <button type="button" onclick="document.getElementById('chat-input').value='How do I remediate SQL injection in a Node.js express app? Show code.';document.getElementById('chat-input').focus();">
+              <strong>// remediate</strong>
+              How do I remediate SQL injection in Node.js? Show code.
+            </button>
+            <button type="button" onclick="document.getElementById('chat-input').value='Map the MITRE ATT&amp;CK technique T1190 to a detection strategy.';document.getElementById('chat-input').focus();">
+              <strong>// defend</strong>
+              Map MITRE ATT&amp;CK T1190 to a detection strategy.
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Composer -->
+      <footer class="chat-composer">
+        <form id="chat-form" class="chat-composer-inner" autocomplete="off">
+          <textarea id="chat-input" name="message" rows="1" placeholder="Ask about pentesting, vulns, remediation, CTFs…" aria-label="Message input"></textarea>
+          <button id="chat-send" type="submit" class="chat-send-btn" aria-label="Send message">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </form>
+        <p class="chat-composer-hint">
+          <kbd>Enter</kbd> newline · <kbd>Ctrl/⌘ + Enter</kbd> send · ToolGpt may refuse malicious requests
+        </p>
+      </footer>
+    </main>
+  </div>
+
+  <!-- ============================================================
+       SETTINGS MODAL
+       ============================================================ -->
+  <div class="modal-overlay" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h2 class="modal-title" id="settings-title">// Settings</h2>
+        <button class="modal-close" aria-label="Close settings" onclick="document.getElementById('settings-modal').hidden=true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Profile -->
+        <form id="settings-form" autocomplete="off">
+          <div class="settings-section">
+            <h3>Profile</h3>
+            <div class="auth-field">
+              <label for="settings-username">Username</label>
+              <input id="settings-username" type="text" maxlength="64" placeholder="anonymous_h4x0r" />
+            </div>
+            <div class="auth-field">
+              <label for="settings-avatar">Avatar URL <span style="color:var(--text-dim)">(https only)</span></label>
+              <input id="settings-avatar" type="url" placeholder="https://…" />
+            </div>
+            <button type="button" id="btn-save-profile" class="btn btn-primary">Save profile</button>
+          </div>
+        </form>
+
+        <!-- Plan -->
+        <div class="settings-section">
+          <h3>Current plan</h3>
+          <div id="settings-plan" class="plan-card" data-plan="free">
+            <!-- settings.js hydrates -->
+          </div>
+          <div style="margin-top:12px;">
+            <button type="button" id="btn-upgrade" class="btn btn-primary" onclick="document.getElementById('settings-modal').hidden=true;document.getElementById('payment-modal').classList.add('open');document.getElementById('payment-modal').hidden=false;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+              Upgrade to Pro — 99 BDT / 30 days
+            </button>
+          </div>
+        </div>
+
+        <!-- Quota -->
+        <div class="settings-section">
+          <h3>Token usage (today)</h3>
+          <div class="quota-bar-wrap"><div id="settings-quota-bar" style="width:0%"></div></div>
+          <div id="settings-quota-text">0 / 200 tokens · plan: free</div>
+        </div>
+
+        <!-- 7-day chart -->
+        <div class="settings-section">
+          <h3>Last 7 days</h3>
+          <div class="usage-chart" id="settings-usage-list">
+            <!-- settings.js hydrates -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       PAYMENT MODAL
+       ============================================================ -->
+  <div class="modal-overlay" id="payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-title" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h2 class="modal-title" id="payment-title">// Upgrade to Pro</h2>
+        <button class="modal-close" id="btn-payment-cancel" aria-label="Close payment">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="payment-form" autocomplete="off">
+          <p style="color:var(--text-muted); font-size:13px; margin:0 0 16px; font-family:var(--font-mono);">
+            // Send payment to the merchant number, then submit the TRX ID. Admin verifies manually within a few hours.
+          </p>
+
+          <div class="auth-field">
+            <label for="payment-method">Method</label>
+            <select id="payment-method" name="method">
+              <option value="bkash">bKash</option>
+              <option value="nagad">Nagad</option>
+            </select>
+          </div>
+
+          <div id="payment-destination" class="payment-dest">bKash → 01XXXXXXXXX (Personal)</div>
+
+          <div class="auth-field">
+            <label for="payment-amount">Amount (BDT)</label>
+            <input id="payment-amount" type="number" min="1" step="1" value="99" readonly />
+          </div>
+
+          <div class="auth-field">
+            <label for="payment-trx">Transaction ID (TRX)</label>
+            <input id="payment-trx" type="text" maxlength="32" placeholder="ABC123XYZ" required />
+          </div>
+
+          <div class="auth-field">
+            <label for="payment-email">Email</label>
+            <input id="payment-email" type="email" placeholder="you@example.com" required />
+          </div>
+
+          <div class="auth-actions">
+            <button type="submit" id="btn-payment-submit" class="btn btn-primary">
+              Submit payment request
+            </button>
+          </div>
+        </form>
+
+        <div class="settings-section" style="margin-top:24px;">
+          <h3>My requests</h3>
+          <div id="my-requests-list">
+            <!-- payment.js hydrates -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- App entry — verifies session server-side, then boots chat/sidebar/settings/payment -->
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

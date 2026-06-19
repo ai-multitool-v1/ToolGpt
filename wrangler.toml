@@ -1,0 +1,51 @@
+# ============================================================================
+# wrangler.toml — Cloudflare Pages project config
+# ============================================================================
+# Deploy with:
+#   npx wrangler pages deploy . --project-name ai-chat-saas
+# ============================================================================
+
+name = "ai-chat-saas"
+compatibility_date = "2024-09-01"
+pages_build_output_dir = "public"
+
+# ----------------------------------------------------------------------------
+# Environment variables — SECRETS go through `wrangler pages secret put`, NOT here.
+# This file only declares non-secret vars and the cron schedule.
+# ----------------------------------------------------------------------------
+
+[vars]
+ALLOWED_ORIGINS = "https://your-app.pages.dev,https://your-custom-domain.com"
+APP_URL          = "https://your-app.pages.dev"
+ADMIN_EMAILS     = "you@example.com"
+
+# Public Supabase URL + anon key (safe to expose; protected by RLS).
+# These go through `[vars]` because they're not secrets. The anon key is
+# designed to be public — RLS is the security boundary.
+# Replace with your project's values.
+SUPABASE_URL      = "https://YOUR-PROJECT.supabase.co"
+SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY"
+
+# ----------------------------------------------------------------------------
+# Cron triggers — calls our /api/cron/* endpoints on a schedule.
+# Cloudflare Pages cron hits a Worker route; to wire this up properly you
+# either:
+#   (a) Create a separate Worker with `[triggers] crons = [...]` that
+#       fetch()es your Pages endpoints with the CRON_SECRET, or
+#   (b) Use an external service (cron-job.org, UptimeRobot) to GET the URLs.
+# We expose option (b) by default since it's simpler.
+# ----------------------------------------------------------------------------
+# [triggers]
+# crons = ["0 0 * * *", "0 * * * *"]
+
+# ----------------------------------------------------------------------------
+# SECRETS — set with:
+#   npx wrangler pages secret put GROQ_API_KEY           --project-name ai-chat-saas
+#   npx wrangler pages secret put GEMINI_API_KEY         --project-name ai-chat-saas
+#   npx wrangler pages secret put SUPABASE_SERVICE_ROLE_KEY --project-name ai-chat-saas
+#   npx wrangler pages secret put TELEGRAM_BOT_TOKEN     --project-name ai-chat-saas
+#   npx wrangler pages secret put TELEGRAM_CHAT_ID       --project-name ai-chat-saas
+#   npx wrangler pages secret put CRON_SECRET            --project-name ai-chat-saas
+#
+# NEVER put these in this file or commit them to git.
+# ----------------------------------------------------------------------------

@@ -1,0 +1,20 @@
+{
+  "name": "ai-chat-saas",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Production-ready AI Chat SaaS — Cloudflare Pages + Supabase + Groq + Gemini",
+  "scripts": {
+    "dev": "npx wrangler pages dev public --local",
+    "deploy": "npx wrangler pages deploy public --project-name ai-chat-saas",
+    "set:secret": "npx wrangler pages secret put",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
